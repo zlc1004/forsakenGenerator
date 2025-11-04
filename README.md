@@ -6,8 +6,12 @@ Automatically solves the 6x6 wire connection puzzles in Roblox Forsaken's genera
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python main.py -c "i(left top x of puzzle)|(left top y of puzzle)|(height/width of puzzle)" --auto
 ```
+
+press left alt to start solving
+
+example config: `-c "i100|200|300"`
 
 Take a screenshot of the generator puzzle, save as `input.png` and run. The solver will:
 

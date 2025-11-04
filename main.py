@@ -118,7 +118,7 @@ def update_overlay_status(message):
         canvas.itemconfig(status_text, text=message)
         overlay.update()
 
-def draw_solution_in_overlay(solutions):
+def draw_solution_in_overlay(solutions, processed_image=None):
     """Draw the solution paths in the overlay."""
     if not overlay or not canvas:
         return
@@ -130,8 +130,20 @@ def draw_solution_in_overlay(solutions):
     overlay_size = overlay.overlay_size
     cell_size = overlay_size // 6
 
-    # Colors for different paths
-    colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan']
+    # Function to get color from processed image
+    def get_color_from_processed(x, y):
+        if processed_image and 0 <= x < 6 and 0 <= y < 6:
+            # Get pixel color from processed image
+            pixel_color = processed_image.getpixel((x, y))
+            # If the color is black, use a default color
+            if pixel_color == (0, 0, 0):
+                return 'white'
+            # Convert RGB tuple to hex color for tkinter
+            return f"#{pixel_color[0]:02x}{pixel_color[1]:02x}{pixel_color[2]:02x}"
+        else:
+            # Fallback colors if no processed image
+            fallback_colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan']
+            return fallback_colors[0]
 
     # Draw grid lines
     for i in range(7):
@@ -145,7 +157,9 @@ def draw_solution_in_overlay(solutions):
         if not path or len(path) < 2:
             continue
 
-        color = colors[i % len(colors)]
+        # Get color from the start point of the path in the processed image
+        start_x, start_y = path[0]
+        color = get_color_from_processed(start_x, start_y)
 
         # Draw path lines
         for j in range(len(path) - 1):
@@ -221,12 +235,12 @@ def execute_solve():
 
     print("Creating visualization...")
     update_overlay_status("Visualizing...")
-    visualization = vision.visualize_path(solutions)
+    visualization = vision.visualize_path(solutions, processed=processed_image)
     visualization.save("output.png")
     print("Saved solution visualization to output.png")
 
     # Display solution in overlay
-    draw_solution_in_overlay(solutions)
+    draw_solution_in_overlay(solutions, processed_image)
 
     if auto_mode:
         update_overlay_status("Executing...")

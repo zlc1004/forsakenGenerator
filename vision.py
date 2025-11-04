@@ -118,12 +118,13 @@ def count_non_black_pixels(image):
     black = (0, 0, 0)
     return len(pixels) - pixels.count(black)
 
-def visualize_path(solutions, grid_size=(6, 6), cell_size=50):
+def visualize_path(solutions, processed=None, grid_size=(6, 6), cell_size=50):
     """
     Create a visual representation of the solved paths.
 
     Args:
         solutions: List of paths from solver.solve()
+        processed: PIL Image object of the processed 6x6 image (optional)
         grid_size: Tuple (width, height) of the grid
         cell_size: Size of each cell in pixels
 
@@ -136,32 +137,44 @@ def visualize_path(solutions, grid_size=(6, 6), cell_size=50):
     img_width = width * cell_size
     img_height = height * cell_size
 
-    # Create white background
-    image = Image.new('RGB', (img_width, img_height), 'white')
+    # Create black background
+    image = Image.new('RGB', (img_width, img_height), 'black')
     draw = ImageDraw.Draw(image)
 
     # Draw grid lines
     for i in range(width + 1):
         x = i * cell_size
-        draw.line([(x, 0), (x, img_height)], fill='lightgray', width=1)
+        draw.line([(x, 0), (x, img_height)], fill='gray', width=1)
 
     for i in range(height + 1):
         y = i * cell_size
-        draw.line([(0, y), (img_width, y)], fill='lightgray', width=1)
+        draw.line([(0, y), (img_width, y)], fill='gray', width=1)
 
-    # Define colors for different paths
-    colors = [
-        'red', 'blue', 'green', 'orange', 'purple', 'brown',
-        'pink', 'gray', 'olive', 'cyan', 'magenta', 'yellow',
-        'darkred', 'darkblue', 'darkgreen'
-    ]
+    # Function to get color from processed image
+    def get_color_from_processed(x, y):
+        if processed and 0 <= x < 6 and 0 <= y < 6:
+            # Get pixel color from processed image
+            pixel_color = processed.getpixel((x, y))
+            # If the color is black, use a default color
+            if pixel_color == (0, 0, 0):
+                return 'white'
+            return pixel_color
+        else:
+            # Fallback colors if no processed image
+            fallback_colors = [
+                'red', 'blue', 'green', 'orange', 'purple', 'brown',
+                'pink', 'gray', 'olive', 'cyan', 'magenta', 'yellow'
+            ]
+            return fallback_colors[0]
 
     # Draw each path
     for path_idx, path in enumerate(solutions):
         if not path or len(path) < 2:
             continue
 
-        color = colors[path_idx % len(colors)]
+        # Get color from the start point of the path in the processed image
+        start_x, start_y = path[0]
+        color = get_color_from_processed(start_x, start_y)
 
         # Draw start and end points as circles
         start_x, start_y = path[0]

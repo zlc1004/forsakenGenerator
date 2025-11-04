@@ -262,16 +262,15 @@ def on_key_press(key):
     """Handle key press events."""
     pressed_keys.add(key)
 
-    # Check for Left Alt key - always work, but behavior depends on auto mode
-    if key == Key.alt_l:
-        # Schedule execute_solve to run on main thread
-        if overlay:
-            overlay.after(0, execute_solve)
-
 def on_key_release(key):
     """Handle key release events."""
     try:
         pressed_keys.discard(key)
+        # Check for Left Alt key - always work, but behavior depends on auto mode
+        if key == Key.alt_l:
+            # Schedule execute_solve to run on main thread
+            if overlay:
+                overlay.after(0, execute_solve)
     except KeyError:
         pass
 

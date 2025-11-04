@@ -1,6 +1,6 @@
 import pyautogui
 
-pyautogui.PAUSE = 0
+pyautogui.PAUSE = 0.006
 
 def pos_to_screen_pos(pos, config):
     region_x, region_y, region_height = config[0], config[1], config[2]

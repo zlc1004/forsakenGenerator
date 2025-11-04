@@ -19,6 +19,9 @@ import time
 import base64
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
+import tkinter as tk
+from tkinter import Canvas
+import threading
 
 # Get config from user input
 config_input = input("Enter config (i|x|y|size or b<base64>): ")
@@ -39,26 +42,162 @@ else:
 print(f"Using config: {config}")
 print("Press Left Alt to start solving...")
 
+# Create overlay window
+root = None
+overlay = None
+
+class OverlayWindow(tk.Toplevel):
+    """Overlay window class that inherits from tk.Toplevel."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        # Configure window attributes as requested
+        self.overrideredirect(True)
+        self.overrideredirect(False)  # Set back to False to keep window decorations
+        self.wm_attributes("-alpha", 0.5)
+        self.wm_attributes("-topmost", "true")
+
+        self.title("Flow Free Solver")
+        self.configure(bg='black')
+
+        # Get screen dimensions
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # Calculate overlay size (20% of screen height for both width and height - double the original size)
+        self.overlay_size = int(screen_height * 0.2)
+
+        # Position at top right
+        x_position = screen_width - self.overlay_size - 20  # 20px margin from edge
+        y_position = 20  # 20px from top
+
+        self.geometry(f"{self.overlay_size}x{self.overlay_size}+{x_position}+{y_position}")
+        self.resizable(False, False)
+
+        # Create canvas for drawing
+        self.canvas = Canvas(self, width=self.overlay_size, height=self.overlay_size, bg='#0a0a0a', highlightthickness=0)
+        self.canvas.pack()
+
+        # Add status text
+        self.status_text = self.canvas.create_text(self.overlay_size//2, 20, text="Ready", fill="white", font=("Arial", 8))
+
+        print(f"📱 Overlay created: {self.overlay_size}x{self.overlay_size} at ({x_position}, {y_position})")
+
+def create_overlay():
+    """Create a small overlay window for displaying solutions."""
+    global root, overlay, canvas, status_text
+
+    # Create root window (hidden)
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+
+    # Create overlay as Toplevel window
+    overlay = OverlayWindow(root)
+
+    # Set global references for backwards compatibility
+    canvas = overlay.canvas
+    status_text = overlay.status_text
+
+def update_overlay_status(message):
+    """Update the status text in overlay."""
+    if overlay and canvas:
+        canvas.itemconfig(status_text, text=message)
+        overlay.update()
+
+def draw_solution_in_overlay(solutions):
+    """Draw the solution paths in the overlay."""
+    if not overlay or not canvas:
+        return
+
+    # Clear canvas
+    canvas.delete("path")
+    canvas.delete("dot")
+
+    overlay_size = overlay.overlay_size
+    cell_size = overlay_size // 6
+
+    # Colors for different paths
+    colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan']
+
+    # Draw grid lines
+    for i in range(7):
+        x = i * cell_size
+        y = i * cell_size
+        canvas.create_line(x, 0, x, overlay_size, fill='gray', width=1, tags="grid")
+        canvas.create_line(0, y, overlay_size, y, fill='gray', width=1, tags="grid")
+
+    # Draw solution paths
+    for i, path in enumerate(solutions):
+        if not path or len(path) < 2:
+            continue
+
+        color = colors[i % len(colors)]
+
+        # Draw path lines
+        for j in range(len(path) - 1):
+            x1, y1 = path[j]
+            x2, y2 = path[j + 1]
+
+            pixel_x1 = x1 * cell_size + cell_size // 2
+            pixel_y1 = y1 * cell_size + cell_size // 2
+            pixel_x2 = x2 * cell_size + cell_size // 2
+            pixel_y2 = y2 * cell_size + cell_size // 2
+
+            canvas.create_line(pixel_x1, pixel_y1, pixel_x2, pixel_y2,
+                             fill=color, width=2, tags="path")
+
+        # Draw start and end points
+        start_x, start_y = path[0]
+        end_x, end_y = path[-1]
+
+        start_pixel_x = start_x * cell_size + cell_size // 2
+        start_pixel_y = start_y * cell_size + cell_size // 2
+        end_pixel_x = end_x * cell_size + cell_size // 2
+        end_pixel_y = end_y * cell_size + cell_size // 2
+
+        # Draw dots
+        radius = 3
+        canvas.create_oval(start_pixel_x - radius, start_pixel_y - radius,
+                         start_pixel_x + radius, start_pixel_y + radius,
+                         fill=color, outline='white', width=1, tags="dot")
+        canvas.create_oval(end_pixel_x - radius, end_pixel_y - radius,
+                         end_pixel_x + radius, end_pixel_y + radius,
+                         fill=color, outline='white', width=1, tags="dot")
+
+        # Add pair number
+        canvas.create_text(start_pixel_x - 8, start_pixel_y - 8, text=str(i+1),
+                         fill='white', font=("Arial", 6), tags="dot")
+
+    overlay.update()
+
+
+
 def execute_solve():
     """Execute the complete solve pipeline."""
     print("\n🚀 Starting solve process...")
+    update_overlay_status("Starting...")
 
     # Capture screenshot and process
     print("Taking screenshot...")
+    update_overlay_status("Capturing...")
     screenshot = vision.capture_screen(config)
     screenshot.save("screenshot.png")
 
     print("Processing image...")
+    update_overlay_status("Processing...")
     processed_image = vision.to_6x6(screenshot)
     processed_image = vision.clean_black(processed_image)
     processed_image.save("processed.png")
     print("Saved processed image to processed.png")
 
     print("Matching wire pairs...")
+    update_overlay_status("Matching...")
     matched_pairs = vision.match(processed_image)
     print(f"Found {len(matched_pairs)} wire pairs: {matched_pairs}")
 
     print("Solving puzzle...")
+    update_overlay_status("Solving...")
     solutions = solver.solve(matched_pairs)
     print("Solution paths:")
     for i, path in enumerate(solutions):
@@ -68,13 +207,19 @@ def execute_solve():
             print(f"  Pair {i+1}: No solution found")
 
     print("Creating visualization...")
+    update_overlay_status("Visualizing...")
     visualization = vision.visualize_path(solutions)
     visualization.save("output.png")
     print("Saved solution visualization to output.png")
 
+    # Display solution in overlay
+    draw_solution_in_overlay(solutions)
+    update_overlay_status("Executing...")
+
     print("Executing solution...")
     automation.complete_solve(solutions, config)
     print("✅ Done! Press Left Alt again to solve another puzzle.\n")
+    update_overlay_status("Ready")
 
 # Track pressed keys for hotkey combination
 pressed_keys = set()
@@ -85,7 +230,9 @@ def on_key_press(key):
 
     # Check for Left Alt key
     if key == Key.alt_l:
-        execute_solve()
+        # Schedule execute_solve to run on main thread
+        if overlay:
+            overlay.after(0, execute_solve)
 
 def on_key_release(key):
     """Handle key release events."""
@@ -94,10 +241,33 @@ def on_key_release(key):
     except KeyError:
         pass
 
-# Set up keyboard listener
-with keyboard.Listener(on_press=on_key_press, on_release=on_key_release) as listener:
+def run_keyboard_listener():
+    """Run keyboard listener in background thread."""
+    with keyboard.Listener(on_press=on_key_press, on_release=on_key_release) as listener:
+        try:
+            listener.join()
+        except KeyboardInterrupt:
+            print("\nExiting...")
+
+def main():
+    """Main function that runs overlay on main thread."""
+    global root, overlay, canvas, status_text
+
+    # Create overlay on main thread
+    create_overlay()
+
+    # Start keyboard listener in background thread
+    keyboard_thread = threading.Thread(target=run_keyboard_listener, daemon=True)
+    keyboard_thread.start()
+
+    print("🎮 System ready! Press Left Alt to solve puzzles.")
+
+    # Run root window mainloop on main thread (this will block until window is closed)
     try:
-        listener.join()
+        root.mainloop()
     except KeyboardInterrupt:
         print("\nExiting...")
-        pass
+
+# Run the main function
+if __name__ == "__main__":
+    main()

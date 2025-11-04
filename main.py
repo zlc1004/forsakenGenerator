@@ -17,15 +17,24 @@ import solver
 import automation
 import time
 import base64
+import argparse
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 import tkinter as tk
 from tkinter import Canvas
 import threading
 
-# Get config from user input
-config_input = input("Enter config (i|x|y|size or b<base64>): ")
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Roblox Forsaken Generator Puzzle Solver')
+parser.add_argument('-c', '--config', required=True,
+                    help='Config string: i|x|y|size or b<base64>')
+parser.add_argument('-a', '--auto', action='store_true',
+                    help='Enable automation (if not set, only shows overlay)')
 
+args = parser.parse_args()
+
+# Parse config
+config_input = args.config
 if config_input.startswith('i'):
     # Parse integer config: i|1227|700|916
     config_str = config_input[1:]  # Remove 'i'
@@ -40,11 +49,15 @@ else:
     exit(1)
 
 print(f"Using config: {config}")
-print("Press Left Alt to start solving...")
+if args.auto:
+    print("Auto mode enabled. Press Left Alt to start solving...")
+else:
+    print("Overlay mode only. Automation disabled.")
 
 # Create overlay window
 root = None
 overlay = None
+auto_mode = False
 
 class OverlayWindow(tk.Toplevel):
     """Overlay window class that inherits from tk.Toplevel."""
@@ -214,12 +227,16 @@ def execute_solve():
 
     # Display solution in overlay
     draw_solution_in_overlay(solutions)
-    update_overlay_status("Executing...")
 
-    print("Executing solution...")
-    automation.complete_solve(solutions, config)
-    print("✅ Done! Press Left Alt again to solve another puzzle.\n")
-    update_overlay_status("Ready")
+    if auto_mode:
+        update_overlay_status("Executing...")
+        print("Executing solution...")
+        automation.complete_solve(solutions, config)
+        print("✅ Done! Press Left Alt again to solve another puzzle.\n")
+        update_overlay_status("Ready")
+    else:
+        update_overlay_status("Solved")
+        print("✅ Solution displayed! Press Left Alt again to solve another puzzle.\n")
 
 # Track pressed keys for hotkey combination
 pressed_keys = set()
@@ -228,7 +245,7 @@ def on_key_press(key):
     """Handle key press events."""
     pressed_keys.add(key)
 
-    # Check for Left Alt key
+    # Check for Left Alt key - always work, but behavior depends on auto mode
     if key == Key.alt_l:
         # Schedule execute_solve to run on main thread
         if overlay:
@@ -251,16 +268,22 @@ def run_keyboard_listener():
 
 def main():
     """Main function that runs overlay on main thread."""
-    global root, overlay, canvas, status_text
+    global root, overlay, canvas, status_text, auto_mode
+
+    # Set auto mode from command line arguments
+    auto_mode = args.auto
 
     # Create overlay on main thread
     create_overlay()
 
-    # Start keyboard listener in background thread
+    # Always start keyboard listener since Alt hotkey works in both modes
     keyboard_thread = threading.Thread(target=run_keyboard_listener, daemon=True)
     keyboard_thread.start()
 
-    print("🎮 System ready! Press Left Alt to solve puzzles.")
+    if auto_mode:
+        print("🎮 System ready! Press Left Alt to solve and execute puzzles.")
+    else:
+        print("🎮 System ready! Press Left Alt to solve and display puzzles (no automation).")
 
     # Run root window mainloop on main thread (this will block until window is closed)
     try:

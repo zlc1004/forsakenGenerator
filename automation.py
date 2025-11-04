@@ -1,7 +1,9 @@
 import pyautogui
+import time
 
 pyautogui.PAUSE = 0.01
-pyautogui.PAUSE = 0.005
+pyautogui.PAUSE = 0.008
+# pyautogui.PAUSE = 0.004
 # pyautogui.PAUSE = 0.001
 # pyautogui.PAUSE = 0
 
@@ -23,8 +25,7 @@ def complete_solve(solve, config, grid_size=6):
         config: [region_x, region_y, region_height] for screen positioning
         grid_size: Size of the puzzle grid (default 6 for 6x6)
     """
-    import time
-
+    time.sleep(pyautogui.PAUSE*3)  # Initial delay before starting
     for path_idx, steps in enumerate(solve):
         if not steps or len(steps) < 2:
             print(f"Skipping path {path_idx + 1}: insufficient steps")

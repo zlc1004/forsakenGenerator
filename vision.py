@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageDraw
 import mss
 import numpy as np
 
@@ -73,7 +73,7 @@ def to_grid(image, grid_size=6, border_percent=0.2):
 
 def get_average_color(image):
     """Calculate the average color of an image."""
-    import numpy as np
+    
 
     # Convert to numpy array for easy averaging
     img_array = np.array(image)
@@ -131,7 +131,6 @@ def visualize_path(solutions, processed=None, grid_size=6, cell_size=50):
     Returns:
         PIL Image showing the solved paths
     """
-    from PIL import ImageDraw
 
     img_width = grid_size * cell_size
     img_height = grid_size * cell_size

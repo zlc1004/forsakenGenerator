@@ -37,8 +37,7 @@ else:
     exit(1)
 
 print(f"Using config: {config}")
-print("Press Left Ctrl+X to start solving...")
-print("Press Ctrl+C to exit")
+print("Press Left Alt to start solving...")
 
 def execute_solve():
     """Execute the complete solve pipeline."""
@@ -75,7 +74,7 @@ def execute_solve():
 
     print("Executing solution...")
     automation.complete_solve(solutions, config)
-    print("✅ Done! Press Left Ctrl+X again to solve another puzzle.\n")
+    print("✅ Done! Press Left Alt again to solve another puzzle.\n")
 
 # Track pressed keys for hotkey combination
 pressed_keys = set()
@@ -84,11 +83,8 @@ def on_key_press(key):
     """Handle key press events."""
     pressed_keys.add(key)
 
-    # Check for Left Ctrl+X combination
-    left_ctrl_pressed = Key.ctrl_l in pressed_keys
-    x_pressed = KeyCode.from_char('x') in pressed_keys
-
-    if left_ctrl_pressed and x_pressed:
+    # Check for Left Alt key
+    if key == Key.alt_l:
         execute_solve()
 
 def on_key_release(key):
@@ -97,11 +93,6 @@ def on_key_release(key):
         pressed_keys.discard(key)
     except KeyError:
         pass
-
-    # Exit on Ctrl+C
-    if key == KeyCode.from_char('c') and (Key.ctrl_l in pressed_keys or Key.ctrl_r in pressed_keys):
-        print("\nExiting...")
-        return False
 
 # Set up keyboard listener
 with keyboard.Listener(on_press=on_key_press, on_release=on_key_release) as listener:

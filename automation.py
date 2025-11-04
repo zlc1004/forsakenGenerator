@@ -47,26 +47,26 @@ def complete_solve(solve, config):
             expanded_path.append(steps[i])
 
             # Add intermediate points between this step and the next
-            # if i < len(steps) - 1:
-            #     current = steps[i]
-            #     next_step = steps[i + 1]
+            if i < len(steps) - 1:
+                current = steps[i]
+                next_step = steps[i + 1]
 
-            #     # Calculate intermediate points
-            #     dx = next_step[0] - current[0]
-            #     dy = next_step[1] - current[1]
+                # Calculate intermediate points
+                dx = next_step[0] - current[0]
+                dy = next_step[1] - current[1]
 
-            #     # Add points every cell if the distance is greater than 1
-            #     distance = max(abs(dx), abs(dy))
-            #     if distance > 1:
-            #         for j in range(1, distance):
-            #             intermediate_x = current[0] + (dx * j // distance)
-            #             intermediate_y = current[1] + (dy * j // distance)
-            #             expanded_path.append((intermediate_x, intermediate_y))
+                # Add points every cell if the distance is greater than 1
+                distance = max(abs(dx), abs(dy))
+                if distance > 1:
+                    for j in range(1, distance):
+                        intermediate_x = current[0] + (dx * j // distance)
+                        intermediate_y = current[1] + (dy * j // distance)
+                        expanded_path.append((intermediate_x, intermediate_y))
 
         # Drag through all expanded steps
         for i in range(1, len(expanded_path)):
             step_screen_pos = pos_to_screen_pos(expanded_path[i], config)
-            pyautogui.dragTo(step_screen_pos[0], step_screen_pos[1], button="left", duration=0.00001, mouseDownUp=False, tween=pyautogui.easeInOutQuad)
+            pyautogui.dragTo(step_screen_pos[0], step_screen_pos[1], button="left", duration=0.00001, mouseDownUp=False, tween=pyautogui.easeInOutQuart)
             print(f"  Dragging to step {i}: {expanded_path[i]} -> {step_screen_pos}")
 
         # Mouse up to finish drawing

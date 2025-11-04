@@ -2,13 +2,88 @@ from PIL import Image
 import mss
 import numpy as np
 
-def capture_screen(region=None):
+def capture_screen(config):
+    region_x, region_y, region_height = config[0], config[1], config[2]
+    region_width = region_height  # Square region
     with mss.mss() as sct:
-        screenshot = sct.grab(region) if region else sct.grab(sct.monitors[0])
+        screenshot = sct.grab((region_x, region_y, region_x + region_width, region_y + region_height))
         img = Image.frombytes('RGB', (screenshot.width, screenshot.height), screenshot.rgb)
         return img
-def to_6x6(image):
-    return image.resize((12,12)).convert("RGB").resize((6,6))
+
+def to_6x6(image, border_percent=0.2):
+    """
+    Convert square input image to 6x6 grid by sampling center areas of each cell.
+
+    Args:
+        image: Square PIL image (e.g., 60x60, 120x120, etc.)
+        border_percent: Percentage of border to remove from each cell (default 0.2 = 20%)
+
+    Returns:
+        6x6 PIL image with averaged colors from center areas
+    """
+    # Ensure square image
+    width, height = image.size
+    if width != height:
+        # Crop to square if not already
+        size = min(width, height)
+        left = (width - size) // 2
+        top = (height - size) // 2
+        image = image.crop((left, top, left + size, top + size))
+        width = height = size
+
+    image = image.convert("RGB")
+    cell_size = width / 6  # Size of each cell in the input image
+    border_pixels = int(cell_size * border_percent)  # Pixels to remove from each side
+
+    # Create output 6x6 image
+    output_image = Image.new("RGB", (6, 6))
+    pixels = []
+
+    for row in range(6):
+        for col in range(6):
+            # Calculate cell boundaries in input image
+            left = int(col * cell_size)
+            top = int(row * cell_size)
+            right = int((col + 1) * cell_size)
+            bottom = int((row + 1) * cell_size)
+
+            # Apply border reduction to sample from center area
+            sample_left = left + border_pixels
+            sample_top = top + border_pixels
+            sample_right = right - border_pixels
+            sample_bottom = bottom - border_pixels
+
+            # Ensure we have at least 1x1 area to sample
+            if sample_right <= sample_left:
+                sample_right = sample_left + 1
+            if sample_bottom <= sample_top:
+                sample_bottom = sample_top + 1
+
+            # Crop the center area of this cell
+            cell_crop = image.crop((sample_left, sample_top, sample_right, sample_bottom))
+
+            # Get average color of this center area
+            avg_color = get_average_color(cell_crop)
+            pixels.append(avg_color)
+
+    # Set all pixels in the 6x6 output
+    output_image.putdata(pixels)
+    return output_image
+
+def get_average_color(image):
+    """Calculate the average color of an image."""
+    import numpy as np
+
+    # Convert to numpy array for easy averaging
+    img_array = np.array(image)
+
+    # Calculate mean for each color channel
+    if len(img_array.shape) == 3:  # RGB image
+        avg_color = np.mean(img_array, axis=(0, 1))
+        return tuple(int(c) for c in avg_color)
+    else:  # Grayscale or other format
+        avg_color = np.mean(img_array)
+        return (int(avg_color), int(avg_color), int(avg_color))
 
 def clean_black(image, allowance=10):
     pixels = list(image.getdata())

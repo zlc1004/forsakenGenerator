@@ -1,3 +1,6 @@
 mss
 Pillow
 numpy
+pyautogui
+pynput
+z3-solver

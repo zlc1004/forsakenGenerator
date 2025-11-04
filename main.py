@@ -11,64 +11,102 @@ The Player can also reset a specific cable by
 clicking the start, or can move the wire backwards
 by clicking on a tile that the wire is on.
 """
-import time
-
-start = time.time()
 
 import vision
 import solver
-from PIL import Image
+import automation
+import time
+import base64
+from pynput import keyboard
+from pynput.keyboard import Key, KeyCode
 
-# "-" is empty tile
-# Each pair represents two wire dots that need to be connected
+# Get config from user input
+config_input = input("Enter config (i|x|y|size or b<base64>): ")
 
-data = [
-    [(0, 5), (4, 3)],
-    [(1, 1), (4, 1)],
-    [(1, 4), (1, 5)],
-    [(3, 0), (5, 1)],
-    [(3, 3), (4, 4)],
-    [(4, 0), (5, 0)],
-]
+if config_input.startswith('i'):
+    # Parse integer config: i|1227|700|916
+    config_str = config_input[1:]  # Remove 'i'
+    config = list(map(int, config_str.split('|')))
+elif config_input.startswith('b'):
+    # Parse base64 config: b<encoded>
+    config_str = config_input[1:]  # Remove 'b'
+    decoded = base64.b64decode(config_str).decode('utf-8')
+    config = list(map(int, decoded.split('|')))
+else:
+    print("Invalid config format. Use 'i|x|y|size' or 'b<base64>'")
+    exit(1)
 
+print(f"Using config: {config}")
+print("Press Left Ctrl+X to start solving...")
+print("Press Ctrl+C to exit")
 
-def print_grid(data):
-    grid = [["-"] * 6 for _ in range(6)]
-    for pair_num, [(x1, y1), (x2, y2)] in enumerate(data, 1):
-        grid[x1][y1] = str(pair_num)
-        grid[x2][y2] = str(pair_num)
-    # grid = list(map(list, zip(*grid)))  # Transpose for correct orientation
-    for row in grid:
-        print(" ".join(row))
-    print()
+def execute_solve():
+    """Execute the complete solve pipeline."""
+    print("\n🚀 Starting solve process...")
 
+    # Capture screenshot and process
+    print("Taking screenshot...")
+    screenshot = vision.capture_screen(config)
+    screenshot.save("screenshot.png")
 
-print_grid(data)
+    print("Processing image...")
+    processed_image = vision.to_6x6(screenshot)
+    processed_image = vision.clean_black(processed_image)
+    processed_image.save("processed.png")
+    print("Saved processed image to processed.png")
 
-screenshot = vision.capture_screen()
-screenshot.save("screenshot.png")
+    print("Matching wire pairs...")
+    matched_pairs = vision.match(processed_image)
+    print(f"Found {len(matched_pairs)} wire pairs: {matched_pairs}")
 
-input_image = Image.open("input.png")
-input_image = vision.to_6x6(input_image)
-input_image = vision.clean_black(input_image)
+    print("Solving puzzle...")
+    solutions = solver.solve(matched_pairs)
+    print("Solution paths:")
+    for i, path in enumerate(solutions):
+        if path:
+            print(f"  Pair {i+1}: {path}")
+        else:
+            print(f"  Pair {i+1}: No solution found")
 
-print(list(input_image.getdata()))
+    print("Creating visualization...")
+    visualization = vision.visualize_path(solutions)
+    visualization.save("output.png")
+    print("Saved solution visualization to output.png")
 
-print("non black pixels count:")
-print(vision.count_non_black_pixels(input_image))
+    print("Executing solution...")
+    automation.complete_solve(solutions, config)
+    print("✅ Done! Press Left Ctrl+X again to solve another puzzle.\n")
 
-print("matched pairs:")
-matched_pairs = vision.match(input_image)
-print(matched_pairs)
+# Track pressed keys for hotkey combination
+pressed_keys = set()
 
-print_grid(matched_pairs)
+def on_key_press(key):
+    """Handle key press events."""
+    pressed_keys.add(key)
 
-solve_result = solver.solve(matched_pairs)
+    # Check for Left Ctrl+X combination
+    left_ctrl_pressed = Key.ctrl_l in pressed_keys
+    x_pressed = KeyCode.from_char('x') in pressed_keys
 
-print(solve_result)
+    if left_ctrl_pressed and x_pressed:
+        execute_solve()
 
-visualized_image = vision.visualize_path(solve_result)
-visualized_image.save("output.png")
+def on_key_release(key):
+    """Handle key release events."""
+    try:
+        pressed_keys.discard(key)
+    except KeyError:
+        pass
 
-end = time.time()
-print(f"Execution time: {end - start} seconds")
+    # Exit on Ctrl+C
+    if key == KeyCode.from_char('c') and (Key.ctrl_l in pressed_keys or Key.ctrl_r in pressed_keys):
+        print("\nExiting...")
+        return False
+
+# Set up keyboard listener
+with keyboard.Listener(on_press=on_key_press, on_release=on_key_release) as listener:
+    try:
+        listener.join()
+    except KeyboardInterrupt:
+        print("\nExiting...")
+        pass

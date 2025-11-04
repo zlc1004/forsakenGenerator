@@ -11,6 +11,9 @@ The Player can also reset a specific cable by
 clicking the start, or can move the wire backwards
 by clicking on a tile that the wire is on.
 """
+import time
+
+start = time.time()
 
 import vision
 import solver
@@ -60,4 +63,12 @@ print(matched_pairs)
 
 print_grid(matched_pairs)
 
-input_image.save("resized_input.png")
+solve_result = solver.solve(matched_pairs)
+
+print(solve_result)
+
+visualized_image = vision.visualize_path(solve_result)
+visualized_image.save("output.png")
+
+end = time.time()
+print(f"Execution time: {end - start} seconds")

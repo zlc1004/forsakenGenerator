@@ -6,3 +6,5 @@ package.json
 .DS_Store
 .vscode
 .conda
+screenshot.png
+output.png

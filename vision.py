@@ -10,16 +10,17 @@ def capture_screen(config):
         img = Image.frombytes('RGB', (screenshot.width, screenshot.height), screenshot.rgb)
         return img
 
-def to_6x6(image, border_percent=0.2):
+def to_grid(image, grid_size=6, border_percent=0.2):
     """
-    Convert square input image to 6x6 grid by sampling center areas of each cell.
+    Convert square input image to NxN grid by sampling center areas of each cell.
 
     Args:
         image: Square PIL image (e.g., 60x60, 120x120, etc.)
+        grid_size: Size of the grid (default 6 for 6x6)
         border_percent: Percentage of border to remove from each cell (default 0.2 = 20%)
 
     Returns:
-        6x6 PIL image with averaged colors from center areas
+        NxN PIL image with averaged colors from center areas
     """
     # Ensure square image
     width, height = image.size
@@ -32,15 +33,15 @@ def to_6x6(image, border_percent=0.2):
         width = height = size
 
     image = image.convert("RGB")
-    cell_size = width / 6  # Size of each cell in the input image
+    cell_size = width / grid_size  # Size of each cell in the input image
     border_pixels = int(cell_size * border_percent)  # Pixels to remove from each side
 
-    # Create output 6x6 image
-    output_image = Image.new("RGB", (6, 6))
+    # Create output NxN image
+    output_image = Image.new("RGB", (grid_size, grid_size))
     pixels = []
 
-    for row in range(6):
-        for col in range(6):
+    for row in range(grid_size):
+        for col in range(grid_size):
             # Calculate cell boundaries in input image
             left = int(col * cell_size)
             top = int(row * cell_size)
@@ -106,11 +107,10 @@ def closest(colors,color):
     smallest_distance = colors[index_of_smallest]
     return tuple(smallest_distance)
 
-def image_index_to_pos(image_index, image_size=(6, 6)):
+def image_index_to_pos(image_index, grid_size=6):
     """Convert linear image index to (x, y) coordinates."""
-    width, height = image_size
-    x = image_index // height
-    y = image_index % height
+    x = image_index // grid_size
+    y = image_index % grid_size
     return (y, x)
 
 def count_non_black_pixels(image):
@@ -118,14 +118,14 @@ def count_non_black_pixels(image):
     black = (0, 0, 0)
     return len(pixels) - pixels.count(black)
 
-def visualize_path(solutions, processed=None, grid_size=(6, 6), cell_size=50):
+def visualize_path(solutions, processed=None, grid_size=6, cell_size=50):
     """
     Create a visual representation of the solved paths.
 
     Args:
         solutions: List of paths from solver.solve()
-        processed: PIL Image object of the processed 6x6 image (optional)
-        grid_size: Tuple (width, height) of the grid
+        processed: PIL Image object of the processed NxN image (optional)
+        grid_size: Size of the grid (e.g., 6 for 6x6)
         cell_size: Size of each cell in pixels
 
     Returns:
@@ -133,26 +133,25 @@ def visualize_path(solutions, processed=None, grid_size=(6, 6), cell_size=50):
     """
     from PIL import ImageDraw
 
-    width, height = grid_size
-    img_width = width * cell_size
-    img_height = height * cell_size
+    img_width = grid_size * cell_size
+    img_height = grid_size * cell_size
 
     # Create black background
     image = Image.new('RGB', (img_width, img_height), 'black')
     draw = ImageDraw.Draw(image)
 
     # Draw grid lines
-    for i in range(width + 1):
+    for i in range(grid_size + 1):
         x = i * cell_size
         draw.line([(x, 0), (x, img_height)], fill='gray', width=1)
 
-    for i in range(height + 1):
+    for i in range(grid_size + 1):
         y = i * cell_size
         draw.line([(0, y), (img_width, y)], fill='gray', width=1)
 
     # Function to get color from processed image
     def get_color_from_processed(x, y):
-        if processed and 0 <= x < 6 and 0 <= y < 6:
+        if processed and 0 <= x < grid_size and 0 <= y < grid_size:
             # Get pixel color from processed image
             pixel_color = processed.getpixel((x, y))
             # If the color is black, use a default color
@@ -228,7 +227,7 @@ def visualize_path(solutions, processed=None, grid_size=(6, 6), cell_size=50):
 
     return image
 
-def match(image):
+def match(image, grid_size=6):
     """Matches non-black pixels in pairs of closest colors and returns their positions."""
     pixels = list(image.getdata())
 
@@ -256,8 +255,8 @@ def match(image):
         for j, (other_pixel_index, other_color) in enumerate(non_black_data):
             if j not in used_indices and j != i and other_color == closest_color:
                 # Convert indices to positions
-                pos1 = image_index_to_pos(pixel_index)
-                pos2 = image_index_to_pos(other_pixel_index)
+                pos1 = image_index_to_pos(pixel_index, grid_size)
+                pos2 = image_index_to_pos(other_pixel_index, grid_size)
                 matched_pairs.append([pos1, pos2])
                 used_indices.add(i)
                 used_indices.add(j)

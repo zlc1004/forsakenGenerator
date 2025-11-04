@@ -1,23 +1,24 @@
 import pyautogui
 
-pyautogui.PAUSE = 0.006
+pyautogui.PAUSE = 0.01
 
-def pos_to_screen_pos(pos, config):
+def pos_to_screen_pos(pos, config, grid_size=6):
     region_x, region_y, region_height = config[0], config[1], config[2]
     x, y = pos
-    cell_height = region_height / 6
-    cell_width = region_height / 6  # Assuming square grid
+    cell_height = region_height / grid_size
+    cell_width = region_height / grid_size  # Assuming square grid
     screen_x = region_x + x * cell_width + cell_width / 2
     screen_y = region_y + y * cell_height + cell_height / 2
     return (int(screen_x), int(screen_y))
 
-def complete_solve(solve, config):
+def complete_solve(solve, config, grid_size=6):
     """
     Automate the solution by drawing wire paths with mouse movements.
 
     Args:
         solve: List of paths, each path is a list of (x,y) coordinates
         config: [region_x, region_y, region_height] for screen positioning
+        grid_size: Size of the puzzle grid (default 6 for 6x6)
     """
     import time
 
@@ -29,12 +30,12 @@ def complete_solve(solve, config):
         print(f"Drawing path {path_idx + 1}: {steps}")
 
         # Move to starting position
-        start_screen_pos = pos_to_screen_pos(steps[0], config)
+        start_screen_pos = pos_to_screen_pos(steps[0], config, grid_size)
         pyautogui.moveTo(start_screen_pos[0], start_screen_pos[1])
         print(f"  Moving to start: {steps[0]} -> {start_screen_pos}")
 
         # Small delay before starting
-        
+
 
         # Mouse down to start drawing
         pyautogui.mouseDown()
@@ -65,7 +66,7 @@ def complete_solve(solve, config):
 
         # Drag through all expanded steps
         for i in range(1, len(expanded_path)):
-            step_screen_pos = pos_to_screen_pos(expanded_path[i], config)
+            step_screen_pos = pos_to_screen_pos(expanded_path[i], config, grid_size)
             pyautogui.dragTo(step_screen_pos[0], step_screen_pos[1], button="left", duration=0.00001, mouseDownUp=False, tween=pyautogui.easeInOutQuart)
             print(f"  Dragging to step {i}: {expanded_path[i]} -> {step_screen_pos}")
 
@@ -73,6 +74,6 @@ def complete_solve(solve, config):
         pyautogui.mouseUp()
         print(f"  Mouse up - path {path_idx + 1} complete")
 
-        time.sleep(pyautogui.PAUSE)
+        time.sleep(pyautogui.PAUSE*2)
 
     print("All paths completed!")

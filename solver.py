@@ -5,13 +5,13 @@ except ImportError:
     Z3_AVAILABLE = False
     print("⚠️  Z3 solver not available. Install with: pip install z3-solver")
 
-def solve(pairs, grid_size=(6, 6)):
+def solve(pairs, grid_size=6):
     """
     Solve Flow Free puzzle using Z3 constraint solver approach.
 
     Args:
         pairs: List of coordinate pairs [[(x1,y1), (x2,y2)], ...]
-        grid_size: Tuple (width, height) of the grid
+        grid_size: Size of the square grid (default 6 for 6x6)
 
     Returns:
         List of paths, where each path is a list of turning points from start to end
@@ -20,11 +20,10 @@ def solve(pairs, grid_size=(6, 6)):
         print("❌ Z3 solver not available, falling back to DFS solver")
         return solve_with_dfs(pairs, grid_size)
 
-    width, height = grid_size
     print(f"🔍 Z3 constraint solving {len(pairs)} pairs...")
 
     # Create board with pair endpoints
-    board = [[0 for _ in range(width)] for _ in range(height)]
+    board = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
     for i, [(x1, y1), (x2, y2)] in enumerate(pairs):
         pair_id = i + 1
         board[y1][x1] = pair_id
@@ -35,7 +34,7 @@ def solve(pairs, grid_size=(6, 6)):
         print("   ", row)
 
     # Solve using Z3 constraints
-    solved_board = solve_with_z3(board, height, width)
+    solved_board = solve_with_z3(board, grid_size, grid_size)
 
     if solved_board:
         print("✅ Z3 solved the puzzle!")
@@ -134,7 +133,6 @@ def find_path_in_solution(board, start, end, target_value, grid_size):
     """
     Find path between start and end points in the solved board.
     """
-    width, height = grid_size
     start_x, start_y = start
     end_x, end_y = end
 
@@ -150,7 +148,7 @@ def find_path_in_solution(board, start, end, target_value, grid_size):
         for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
             nx, ny = x + dx, y + dy
 
-            if (0 <= nx < width and 0 <= ny < height and
+            if (0 <= nx < grid_size and 0 <= ny < grid_size and
                 (nx, ny) not in visited and
                 board[ny][nx] == target_value):
 
@@ -171,10 +169,6 @@ def solve_with_dfs(pairs, grid_size):
     print("🔄 Using DFS fallback solver...")
     # This would be a simpler implementation
     return [[] for _ in pairs]
-
-
-
-
 
 def simplify_path(path):
     """
@@ -201,12 +195,11 @@ def simplify_path(path):
     simplified.append(path[-1])  # Always include end
     return simplified
 
-def print_grid_with_paths(pairs, solutions, grid_size=(6, 6)):
+def print_grid_with_paths(pairs, solutions, grid_size=6):
     """
     Debug function to visualize the solved grid.
     """
-    width, height = grid_size
-    grid = [["." for _ in range(width)] for _ in range(height)]
+    grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
     # Mark paths
     for i, (pair, path) in enumerate(zip(pairs, solutions)):

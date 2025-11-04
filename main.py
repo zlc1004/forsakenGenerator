@@ -30,8 +30,11 @@ parser.add_argument('-c', '--config', required=True,
                     help='Config string: i|x|y|size or b<base64>')
 parser.add_argument('-a', '--auto', action='store_true',
                     help='Enable automation (if not set, only shows overlay)')
+parser.add_argument('-s', '--size', type=int, default=6,
+                    help='Size of the puzzle grid (default: 6 for 6x6)')
 
 args = parser.parse_args()
+puzzle_size = args.size
 
 # Parse config
 config_input = args.config
@@ -118,7 +121,7 @@ def update_overlay_status(message):
         canvas.itemconfig(status_text, text=message)
         overlay.update()
 
-def draw_solution_in_overlay(solutions, processed_image=None):
+def draw_solution_in_overlay(solutions, processed_image=None, grid_size=6):
     """Draw the solution paths in the overlay."""
     if not overlay or not canvas:
         return
@@ -128,11 +131,11 @@ def draw_solution_in_overlay(solutions, processed_image=None):
     canvas.delete("dot")
 
     overlay_size = overlay.overlay_size
-    cell_size = overlay_size // 6
+    cell_size = overlay_size // grid_size
 
     # Function to get color from processed image
     def get_color_from_processed(x, y):
-        if processed_image and 0 <= x < 6 and 0 <= y < 6:
+        if processed_image and 0 <= x < grid_size and 0 <= y < grid_size:
             # Get pixel color from processed image
             pixel_color = processed_image.getpixel((x, y))
             # If the color is black, use a default color
@@ -146,7 +149,7 @@ def draw_solution_in_overlay(solutions, processed_image=None):
             return fallback_colors[0]
 
     # Draw grid lines
-    for i in range(7):
+    for i in range(grid_size + 1):
         x = i * cell_size
         y = i * cell_size
         canvas.create_line(x, 0, x, overlay_size, fill='gray', width=1, tags="grid")
@@ -213,19 +216,19 @@ def execute_solve():
 
     print("Processing image...")
     update_overlay_status("Processing...")
-    processed_image = vision.to_6x6(screenshot)
+    processed_image = vision.to_grid(screenshot, grid_size=puzzle_size)
     processed_image = vision.clean_black(processed_image)
     processed_image.save("processed.png")
     print("Saved processed image to processed.png")
 
     print("Matching wire pairs...")
     update_overlay_status("Matching...")
-    matched_pairs = vision.match(processed_image)
+    matched_pairs = vision.match(processed_image, grid_size=puzzle_size)
     print(f"Found {len(matched_pairs)} wire pairs: {matched_pairs}")
 
     print("Solving puzzle...")
     update_overlay_status("Solving...")
-    solutions = solver.solve(matched_pairs)
+    solutions = solver.solve(matched_pairs, grid_size=puzzle_size)
     print("Solution paths:")
     for i, path in enumerate(solutions):
         if path:
@@ -235,17 +238,17 @@ def execute_solve():
 
     print("Creating visualization...")
     update_overlay_status("Visualizing...")
-    visualization = vision.visualize_path(solutions, processed=processed_image)
+    visualization = vision.visualize_path(solutions, processed=processed_image, grid_size=puzzle_size)
     visualization.save("output.png")
     print("Saved solution visualization to output.png")
 
     # Display solution in overlay
-    draw_solution_in_overlay(solutions, processed_image)
+    draw_solution_in_overlay(solutions, processed_image, grid_size=puzzle_size)
 
     if auto_mode:
         update_overlay_status("Executing...")
         print("Executing solution...")
-        automation.complete_solve(solutions, config)
+        automation.complete_solve(solutions, config, grid_size=puzzle_size)
         print("✅ Done! Press Left Alt again to solve another puzzle.\n")
         update_overlay_status("Ready")
     else:

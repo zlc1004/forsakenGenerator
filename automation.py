@@ -40,7 +40,7 @@ def complete_solve(solve, config, grid_size=6):
 
         # Small delay before starting
 
-
+        time.sleep(pyautogui.PAUSE)
         # Mouse down to start drawing
         pyautogui.mouseDown()
         time.sleep(pyautogui.PAUSE)
@@ -75,6 +75,7 @@ def complete_solve(solve, config, grid_size=6):
             print(f"  Dragging to step {i}: {expanded_path[i]} -> {step_screen_pos}")
 
         # Mouse up to finish drawing
+        time.sleep(pyautogui.PAUSE)
         pyautogui.mouseUp()
         print(f"  Mouse up - path {path_idx + 1} complete")
 

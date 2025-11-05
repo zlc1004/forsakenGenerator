@@ -35,7 +35,7 @@ def to_grid(image, grid_size=6, border_percent=0.2):
     image = image.convert("RGB")
     cell_size = width / grid_size  # Size of each cell in the input image
     border_pixels = int(cell_size * border_percent)  # Pixels to remove from each side
-
+    
     # Create output NxN image
     output_image = Image.new("RGB", (grid_size, grid_size))
     pixels = []
@@ -74,17 +74,28 @@ def to_grid(image, grid_size=6, border_percent=0.2):
 def get_average_color(image):
     """Calculate the average color of an image."""
     
-
+    data = list(image.getdata())
+    
+    data_set = set(data)
+    counts={}
+    for color in data_set:
+        counts[color]=data.count(color)
+    
+    dominant_color = max(counts, key=counts.get)
+    return dominant_color
+    
     # Convert to numpy array for easy averaging
-    img_array = np.array(image)
+    # img_array = np.array(image)
 
-    # Calculate mean for each color channel
-    if len(img_array.shape) == 3:  # RGB image
-        avg_color = np.mean(img_array, axis=(0, 1))
-        return tuple(int(c) for c in avg_color)
-    else:  # Grayscale or other format
-        avg_color = np.mean(img_array)
-        return (int(avg_color), int(avg_color), int(avg_color))
+    # # Calculate mean for each color channel
+    # if len(img_array.shape) == 3:  # RGB image
+    #     avg_color = np.mean(img_array, axis=(0, 1))
+    #     return tuple(int(c) for c in avg_color)
+    # else:  # Grayscale or other format
+    #     avg_color = np.mean(img_array)
+    #     return (int(avg_color), int(avg_color), int(avg_color))
+    
+
 
 def clean_black(image, allowance=10):
     pixels = list(image.getdata())

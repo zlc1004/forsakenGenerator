@@ -10,17 +10,17 @@ def capture_screen(config):
         img = Image.frombytes('RGB', (screenshot.width, screenshot.height), screenshot.rgb)
         return img
 
-def to_grid(image, grid_size=6, border_percent=0.2):
+def to_grid(image, grid_size=6, debug=False):
     """
-    Convert square input image to NxN grid by sampling center areas of each cell.
+    Convert square input image to NxN grid by sampling dominant colors from each cell.
 
     Args:
         image: Square PIL image (e.g., 60x60, 120x120, etc.)
         grid_size: Size of the grid (default 6 for 6x6)
-        border_percent: Percentage of border to remove from each cell (default 0.2 = 20%)
+        debug: If True, saves combined cell areas to grid.png (default False)
 
     Returns:
-        NxN PIL image with averaged colors from center areas
+        NxN PIL image with dominant colors from each cell
     """
     # Ensure square image
     width, height = image.size
@@ -34,56 +34,86 @@ def to_grid(image, grid_size=6, border_percent=0.2):
 
     image = image.convert("RGB")
     cell_size = width / grid_size  # Size of each cell in the input image
-    border_pixels = int(cell_size * border_percent)  # Pixels to remove from each side
-    
+
     # Create output NxN image
     output_image = Image.new("RGB", (grid_size, grid_size))
     pixels = []
 
+    # For debug mode, collect all cell crops
+    if debug:
+        cell_crops = []
+
     for row in range(grid_size):
         for col in range(grid_size):
-            # Calculate cell boundaries in input image
+            # Calculate cell boundaries in input image - use entire cell
             left = int(col * cell_size)
             top = int(row * cell_size)
             right = int((col + 1) * cell_size)
             bottom = int((row + 1) * cell_size)
 
-            # Apply border reduction to sample from center area
-            sample_left = left + border_pixels
-            sample_top = top + border_pixels
-            sample_right = right - border_pixels
-            sample_bottom = bottom - border_pixels
+            # Crop the entire cell area
+            cell_crop = image.crop((left, top, right, bottom))
 
-            # Ensure we have at least 1x1 area to sample
-            if sample_right <= sample_left:
-                sample_right = sample_left + 1
-            if sample_bottom <= sample_top:
-                sample_bottom = sample_top + 1
+            # Store for debug visualization
+            if debug:
+                cell_crops.append((row, col, cell_crop))
 
-            # Crop the center area of this cell
-            cell_crop = image.crop((sample_left, sample_top, sample_right, sample_bottom))
+            # Get dominant color of this cell
+            dominant_color = get_average_color(cell_crop)
+            pixels.append(dominant_color)
 
-            # Get average color of this center area
-            avg_color = get_average_color(cell_crop)
-            pixels.append(avg_color)
+    # Save debug visualization if requested
+    if debug:
+        save_debug_grid(cell_crops, grid_size)
 
-    # Set all pixels in the 6x6 output
+    # Set all pixels in the NxN output
     output_image.putdata(pixels)
     return output_image
 
+def save_debug_grid(cell_crops, grid_size):
+    """
+    Save all cell cropped areas combined into a single grid image.
+
+    Args:
+        cell_crops: List of (row, col, crop_image) tuples
+        grid_size: Size of the grid
+    """
+    if not cell_crops:
+        return
+
+    # Get the size of individual crops (assume all are same size)
+    crop_width, crop_height = cell_crops[0][2].size
+
+    # Calculate total image size
+    total_width = crop_width * grid_size
+    total_height = crop_height * grid_size
+
+    # Create combined image
+    combined_image = Image.new('RGB', (total_width, total_height), 'black')
+
+    # Paste each crop in the correct position
+    for row, col, crop_image in cell_crops:
+        x = col * crop_width
+        y = row * crop_height
+        combined_image.paste(crop_image, (x, y))
+
+    # Save the combined image
+    combined_image.save('grid.png')
+    print(f"Debug: Saved cell crops grid to grid.png ({total_width}x{total_height})")
+
 def get_average_color(image):
     """Calculate the average color of an image."""
-    
+
     data = list(image.getdata())
-    
+
     data_set = set(data)
     counts={}
     for color in data_set:
         counts[color]=data.count(color)
-    
+
     dominant_color = max(counts, key=counts.get)
     return dominant_color
-    
+
     # Convert to numpy array for easy averaging
     # img_array = np.array(image)
 
@@ -94,7 +124,7 @@ def get_average_color(image):
     # else:  # Grayscale or other format
     #     avg_color = np.mean(img_array)
     #     return (int(avg_color), int(avg_color), int(avg_color))
-    
+
 
 
 def clean_black(image, allowance=10):

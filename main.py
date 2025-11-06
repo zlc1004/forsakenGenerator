@@ -89,16 +89,60 @@ class OverlayWindow(tk.Toplevel):
         y_position = 20  # 20px from top
 
         self.geometry(f"{self.overlay_size}x{self.overlay_size}+{x_position}+{y_position}")
-        self.resizable(False, False)
+        self.resizable(True, True)
 
-        # Create canvas for drawing
-        self.canvas = Canvas(self, width=self.overlay_size, height=self.overlay_size, bg='#0a0a0a', highlightthickness=0)
-        self.canvas.pack()
+        # Create canvas for drawing - expand to fill window
+        self.canvas = Canvas(self, bg='#0a0a0a', highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
 
-        # Add status text
+        # Add status text (will be repositioned on resize)
         self.status_text = self.canvas.create_text(self.overlay_size//2, 20, text="Ready", fill="white", font=("Arial", 8))
 
+        # Bind resize event to update canvas content
+        self.bind("<Configure>", self.on_window_resize)
+
+        # Store current solutions for redrawing on resize
+        self.current_solutions = []
+        self.current_processed_image = None
+        self.current_grid_size = 6
+        self.resize_after_id = None  # For debouncing resize events
+
         print(f"📱 Overlay created: {self.overlay_size}x{self.overlay_size} at ({x_position}, {y_position})")
+
+    def on_window_resize(self, event):
+        """Handle window resize events with debouncing."""
+        # Only handle resize events for the main window, not canvas
+        if event.widget == self:
+            # Cancel any pending resize redraw
+            if self.resize_after_id:
+                self.after_cancel(self.resize_after_id)
+
+            # Schedule redraw after a short delay to debounce multiple resize events
+            self.resize_after_id = self.after(100, self._redraw_solutions)
+
+    def _redraw_solutions(self):
+        """Redraw the current solutions with new window size."""
+        self.resize_after_id = None  # Clear the after ID
+
+        # Get current window size and reposition status text
+        current_width = self.winfo_width()
+        current_height = self.winfo_height()
+        self.canvas.coords(self.status_text, current_width//2, 20)
+
+        # Redraw current solutions if any
+        if hasattr(self, 'current_solutions') and self.current_solutions:
+            # Use after_idle to prevent blocking
+            self.after_idle(self._do_redraw)
+
+    def _do_redraw(self):
+        """Actually perform the redraw operation."""
+        draw_solution_in_overlay_internal(
+            self.current_solutions,
+            self.current_processed_image,
+            self.current_grid_size,
+            self.canvas,
+            self
+        )
 
 def create_overlay():
     """Create a small overlay window for displaying solutions."""
@@ -126,11 +170,30 @@ def draw_solution_in_overlay(solutions, processed_image=None, grid_size=6):
     if not overlay or not canvas:
         return
 
-    # Clear canvas
-    canvas.delete("path")
-    canvas.delete("dot")
+    # Store current solutions for redrawing on resize
+    overlay.current_solutions = solutions
+    overlay.current_processed_image = processed_image
+    overlay.current_grid_size = grid_size
 
-    overlay_size = overlay.overlay_size
+    # Use internal drawing function
+    draw_solution_in_overlay_internal(solutions, processed_image, grid_size, canvas, overlay)
+
+def draw_solution_in_overlay_internal(solutions, processed_image, grid_size, canvas_obj, window_obj):
+    """Internal function to draw solutions on any canvas with current window size."""
+    if not canvas_obj or not window_obj:
+        return
+
+    # Clear canvas
+    canvas_obj.delete("path")
+    canvas_obj.delete("dot")
+    canvas_obj.delete("grid")
+
+    # Get current window size
+    current_width = window_obj.winfo_width()
+    current_height = window_obj.winfo_height()
+
+    # Use the smaller dimension to maintain square aspect ratio
+    overlay_size = min(current_width, current_height)
     cell_size = overlay_size // grid_size
 
     # Function to get color from processed image
@@ -152,8 +215,8 @@ def draw_solution_in_overlay(solutions, processed_image=None, grid_size=6):
     for i in range(grid_size + 1):
         x = i * cell_size
         y = i * cell_size
-        canvas.create_line(x, 0, x, overlay_size, fill='gray', width=1, tags="grid")
-        canvas.create_line(0, y, overlay_size, y, fill='gray', width=1, tags="grid")
+        canvas_obj.create_line(x, 0, x, overlay_size, fill='gray', width=1, tags="grid")
+        canvas_obj.create_line(0, y, overlay_size, y, fill='gray', width=1, tags="grid")
 
     # Draw solution paths
     for i, path in enumerate(solutions):
@@ -174,7 +237,7 @@ def draw_solution_in_overlay(solutions, processed_image=None, grid_size=6):
             pixel_x2 = x2 * cell_size + cell_size // 2
             pixel_y2 = y2 * cell_size + cell_size // 2
 
-            canvas.create_line(pixel_x1, pixel_y1, pixel_x2, pixel_y2,
+            canvas_obj.create_line(pixel_x1, pixel_y1, pixel_x2, pixel_y2,
                              fill=color, width=2, tags="path")
 
         # Draw start and end points
@@ -188,18 +251,18 @@ def draw_solution_in_overlay(solutions, processed_image=None, grid_size=6):
 
         # Draw dots
         radius = 3
-        canvas.create_oval(start_pixel_x - radius, start_pixel_y - radius,
+        canvas_obj.create_oval(start_pixel_x - radius, start_pixel_y - radius,
                          start_pixel_x + radius, start_pixel_y + radius,
                          fill=color, outline='white', width=1, tags="dot")
-        canvas.create_oval(end_pixel_x - radius, end_pixel_y - radius,
+        canvas_obj.create_oval(end_pixel_x - radius, end_pixel_y - radius,
                          end_pixel_x + radius, end_pixel_y + radius,
                          fill=color, outline='white', width=1, tags="dot")
 
         # Add pair number
-        canvas.create_text(start_pixel_x - 8, start_pixel_y - 8, text=str(i+1),
+        canvas_obj.create_text(start_pixel_x - 8, start_pixel_y - 8, text=str(i+1),
                          fill='white', font=("Arial", 6), tags="dot")
 
-    overlay.update()
+    window_obj.update()
 
 
 
